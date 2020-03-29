@@ -1,6 +1,7 @@
 from urllib.parse import urlencode
 import requests
 import json
+import time
 
 def find_items(**kwargs):
     
@@ -77,6 +78,8 @@ def find_items(**kwargs):
     for item in j['findItemsAdvancedResponse'][0]['searchResult'][0]['item']:
         results['items'].append(item['itemId'][0])
     
+    # pausing 110 milliseconds to space queries to avoid more than 10 calls per second.
+    time.sleep(0.11)
     return results
         
         

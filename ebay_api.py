@@ -24,7 +24,7 @@ def find_items(**kwargs):
         payload['keywords'] = kwargs['keywords']
         
     if 'site' in kwargs.keys():
-        payload['GLOBAL-ID'] = kwargs['site']
+        payload['GLOBAL-ID'] = kwargs['global_id']
 
     if 'page_nr' in kwargs.keys():
         payload['paginationInput.pageNumber'] = kwargs['page_nr']
@@ -32,7 +32,7 @@ def find_items(**kwargs):
     if 'app_key' in kwargs.keys():
         payload['SECURITY-APPNAME'] = kwargs['app_key']
     
-    url_templ = "http://svcs.ebay.com/services/search/FindingService/v1?"
+    url_templ = "https://svcs.ebay.com/services/search/FindingService/v1?"
 
     results = { 'tot_pages' : 0,
                 'page_nr' : 0,
@@ -118,6 +118,25 @@ def find_items_mult_pages(**kwargs):
     return results_list
 
 
+def find_items_mult_sites(**kwargs):
+    
+    results_list = []
+    
+    if len(kwargs['sites']) == 0:
+        kwargs['sites'].append('US')
+        
+    for site in kwargs['sites']:
+        global_id = globalSiteMap[site]['globalID']
+        
+        kwargs['global_id'] = global_id
+        
+        results = find_items_mult_pages(**kwargs)
+        
+        results_list.extend(results)
+        
+    return results_list
+
+
 def items_description(list_of_items, site_id = 0):
     
     if len(list_of_items) > 20:
@@ -143,7 +162,9 @@ def items_description(list_of_items, site_id = 0):
         msg = j['Errors'][0]['LongMessage']
         error = "Ack {}: {}".format(ack, msg)
         raise Exception(error)
-        
+    
+    # pausing 110 milliseconds to space queries to avoid more than 10 calls per second.
+    time.sleep(0.11)
     return j['Item']
 
 

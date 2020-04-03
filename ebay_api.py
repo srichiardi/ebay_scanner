@@ -2,6 +2,9 @@ from urllib.parse import urlencode
 import requests
 import json
 import time
+from modules.eBayGlobalMap import globalSiteMap
+
+
 
 def find_items(**kwargs):
     
@@ -104,7 +107,7 @@ def find_items_mult_pages(**kwargs):
             error = "{}\n{}".format(params , msg)
             raise Exception(error)
         else:
-            results_list.append(results)
+            results_list.extend(results)
             
             tot_pages = results['tot_pages']
             
@@ -120,7 +123,7 @@ def find_items_mult_pages(**kwargs):
 
 def find_items_mult_sites(**kwargs):
     
-    results_list = []
+    results_by_site = {}
     
     if len(kwargs['sites']) == 0:
         kwargs['sites'].append('US')
@@ -132,12 +135,32 @@ def find_items_mult_sites(**kwargs):
         
         results = find_items_mult_pages(**kwargs)
         
-        results_list.extend(results)
+        results_by_site[site] = results
         
-    return results_list
+    return results_by_site
+
+
+
+def deduplicate_items(results_by_site):
+    
+    sites_by_item = defauldict(list)
+    
+    for site in results_by_site.keys():
+        
+        for record in results_list[site]:
+            
+            for item in record['items']:
+                
+                if site not in sites_by_item[item]:
+                    sites_by_item[item].append(site)
+                    
+    return sites_by_item
+        
 
 
 def items_description(list_of_items, site_id = 0):
+    
+    order_of_preference = ['US', 'CA-EN', 'GB', 'AU', 'IE', 'IT', 'FR', 'CA-FR', 'BE-FR', 'DE', 'AT', 'NL', 'BE-NL', 'ES', 'MOTOR', 'CH', 'HK', 'IN', 'MY', 'PH', 'PL', 'SG']
     
     if len(list_of_items) > 20:
         raise Exception("Too many items. Provide a list of no more than 20!")

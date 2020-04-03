@@ -141,7 +141,7 @@ def find_items_mult_sites(**kwargs):
 
 
 
-def deduplicate_items(results_by_site):
+def sites_by_item(results_by_site):
     
     sites_by_item = defauldict(list)
     
@@ -155,12 +155,26 @@ def deduplicate_items(results_by_site):
                     sites_by_item[item].append(site)
                     
     return sites_by_item
+
+
+
+def dedup_items_by_site(sites_by_item):
+    
+    order_of_preference = ['US', 'CA-EN', 'GB', 'AU', 'IE', 'IT', 'FR', 'CA-FR', 'BE-FR', 'ES', 'MOTOR', 'DE', 'AT', 'NL', 'BE-NL', 'CH', 'HK', 'IN', 'MY', 'PH', 'PL', 'SG']
+    
+    items_by_site = defaultdict(list)
+    
+    for item in sites_by_item.keys():
+        for site in order_of_preference:
+            if site in sites_by_item[item]:
+                items_by_site[site].append(item)
+                break
+            
+    return items_by_site
         
 
 
 def items_description(list_of_items, site_id = 0):
-    
-    order_of_preference = ['US', 'CA-EN', 'GB', 'AU', 'IE', 'IT', 'FR', 'CA-FR', 'BE-FR', 'DE', 'AT', 'NL', 'BE-NL', 'ES', 'MOTOR', 'CH', 'HK', 'IN', 'MY', 'PH', 'PL', 'SG']
     
     if len(list_of_items) > 20:
         raise Exception("Too many items. Provide a list of no more than 20!")

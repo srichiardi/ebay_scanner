@@ -1,22 +1,28 @@
 from urllib.parse import urlencode
 import requests
 import json
-import time
+from time import sleep
+from collections import OrderedDict, defaultdict
 from modules.eBayGlobalMap import globalSiteMap
-
 
 
 def find_items(**kwargs):
     
-    payload = { 'OPERATION-NAME' : 'findItemsAdvanced',
-               'SERVICE-VERSION' : '1.13.0',
-               'SECURITY-APPNAME' : 'StefanoR-ebayFric-PRD-19f17700d-ff298548',
-               'RESPONSE-DATA-FORMAT' : 'JSON',
-               'GLOBAL-ID' : 'EBAY-US',
-               'REST-PAYLOAD' : '',
-               'paginationInput.entriesPerPage' : 100 }
+    payload = OrderedDict()
+    
+    payload['OPERATION-NAME'] = 'findItemsAdvanced'
+    payload['SERVICE-VERSION'] = '1.13.0'
+    payload['SECURITY-APPNAME'] = 'StefanoR-ebayFric-PRD-19f17700d-ff298548'
+    payload['RESPONSE-DATA-FORMAT'] = 'JSON'
+    payload['REST-PAYLOAD'] = 'true'
     
     i = 0
+    
+    if 'max_results' in kwargs.keys():
+        payload['paginationInput.entriesPerPage'] = kwargs['max_results']
+    else:
+        payload['paginationInput.entriesPerPage'] = '100'
+        
     
     if 'sellerId' in kwargs.keys():
         payload['itemFilter({}).name'.format(i)] = 'Seller'
@@ -26,8 +32,10 @@ def find_items(**kwargs):
     if 'keywords' in kwargs.keys():
         payload['keywords'] = kwargs['keywords']
         
-    if 'site' in kwargs.keys():
+    if 'global_id' in kwargs.keys():
         payload['GLOBAL-ID'] = kwargs['global_id']
+    else:
+        payload['GLOBAL-ID'] = 'EBAY-US'
 
     if 'page_nr' in kwargs.keys():
         payload['paginationInput.pageNumber'] = kwargs['page_nr']
@@ -36,6 +44,7 @@ def find_items(**kwargs):
         payload['SECURITY-APPNAME'] = kwargs['app_key']
     
     url_templ = "https://svcs.ebay.com/services/search/FindingService/v1?"
+    #url_templ = "https://api.sandbox.ebay.com/services/search/FindingService/v1?"
 
     results = { 'tot_pages' : 0,
                 'page_nr' : 0,
@@ -51,9 +60,16 @@ def find_items(**kwargs):
     if 'findItemsAdvancedResponse' in j.keys():
         
         if j['findItemsAdvancedResponse'][0]['ack'][0] == 'Success':
+            
+            results['tot_pages'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['totalPages'][0])
+            results['page_nr'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['pageNumber'][0])
+            results['tot_results'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['totalEntries'][0])
+            
             if results['tot_pages'] == 0:
                 msg = "Zero items found with this search query"
                 results['error_msg'] = msg
+                sleep(0.11)
+                return results
         
         elif j['findItemsAdvancedResponse'][0]['ack'][0] in ['Warning', 'PartialFailure']:
             results['status'] = j['findItemsAdvancedResponse'][0]['ack'][0]
@@ -73,20 +89,23 @@ def find_items(**kwargs):
     
     else:
         raise Exception(json.dumps(j))
-
-    results['tot_pages'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['totalPages'][0])
-    results['page_nr'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['pageNumber'][0])
-    results['tot_results'] = int(j['findItemsAdvancedResponse'][0]['paginationOutput'][0]['totalEntries'][0])
-
+    
     for item in j['findItemsAdvancedResponse'][0]['searchResult'][0]['item']:
         results['items'].append(item['itemId'][0])
     
+    print("page_nr: {}, tot pages: {}, tot_results: {}, keywords: {}, site: {}".format(results['page_nr'], results['tot_pages'], results['tot_results'], payload['keywords'], payload['GLOBAL-ID']))
+    
     # pausing 110 milliseconds to space queries to avoid more than 10 calls per second.
-    time.sleep(0.11)
+    sleep(0.11)
     return results
         
         
 def find_items_mult_pages(**kwargs):
+    
+    if 'max_pages' in kwargs.keys():
+        max_pages = kwargs['max_pages']
+    else:
+        max_pages = 100
     
     page_nr = 1
     
@@ -107,11 +126,11 @@ def find_items_mult_pages(**kwargs):
             error = "{}\n{}".format(params , msg)
             raise Exception(error)
         else:
-            results_list.extend(results)
+            results_list.append(results)
             
             tot_pages = results['tot_pages']
             
-            if results['page_nr'] == 100:
+            if results['page_nr'] == max_pages:
                 break
             elif results['page_nr'] == results['tot_pages']:
                 break
@@ -143,11 +162,11 @@ def find_items_mult_sites(**kwargs):
 
 def sites_by_item(results_by_site):
     
-    sites_by_item = defauldict(list)
+    sites_by_item = defaultdict(list)
     
     for site in results_by_site.keys():
         
-        for record in results_list[site]:
+        for record in results_by_site[site]:
             
             for item in record['items']:
                 
@@ -171,6 +190,9 @@ def dedup_items_by_site(sites_by_item):
                 break
             
     return items_by_site
+
+
+input_dict = {'max_results' : 2, 'max_pages' : 3, 'keywords' : 'Tommy Hilfiger Shirt', 'sites' : ['US', 'CA-EN', 'GB']}
         
 
 
@@ -222,18 +244,4 @@ def multi_items_description(list_of_items, site_id = 0):
     return results
 
 
-searches = ['tommy hilfiger shirt', 'polo ralph lauren', 'baby oil']
-for search in searches:
 
-    j = find_items_mult_pages(site = 'EBAY-GB', keywords = search)
-    items_list = []
-    for r in j:
-        for item in r['items']:
-            if item not in items_list:
-                items_list.append(item)
-
-    print("found {} unique results, for {}".format(len(items_list), search))
-
-    j = multi_items_description(items_list, site_id = 3)
-
-    print("returned {} item descriptions for {}".format(len(j), search))

@@ -3,6 +3,8 @@ import requests
 import json
 from time import sleep
 from collections import OrderedDict, defaultdict
+from pandas.io.json import json_normalize
+from pandas import merge
 from modules.eBayGlobalMap import globalSiteMap
 
 
@@ -203,7 +205,7 @@ def items_description(list_of_items, site_id = 0):
         
     items_string = ','.join(list_of_items)
         
-    url_templ = "http://open.api.ebay.com/shopping?"
+    url_templ = "https://open.api.ebay.com/shopping?"
 
     payload = { 'appid' : 'StefanoR-ebayFric-PRD-19f17700d-ff298548',
                 'callname' : 'GetMultipleItems',
@@ -223,7 +225,7 @@ def items_description(list_of_items, site_id = 0):
         raise Exception(error)
     
     # pausing 110 milliseconds to space queries to avoid more than 10 calls per second.
-    time.sleep(0.11)
+    sleep(0.11)
     return j['Item']
 
 
